@@ -1,4 +1,5 @@
-﻿= Regard HealthCheck =
+﻿Regard HealthCheck
+------------------
 
 Ensures that the endpoint is correctly ingesting events.
 
