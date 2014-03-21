@@ -48,28 +48,29 @@ namespace Regard.HealthCheck
                 // Get the configuration
                 var appSettings = ConfigurationManager.AppSettings;
 
-                string endpointUrl = appSettings["EndPointUrl"];
-                string storageTableName = appSettings["StorageTableName"];
-                string postPath = appSettings["PostPath"];
-                string partitionKey = appSettings["PartitionKey"];
-                string storageConnectionString = appSettings["StorageConnectionString"];
-                string healthCheckSharedSecret = appSettings["HealthCheckSharedSecret"];
+                string endpointUrl              = appSettings["EndPointUrl"];
+                string storageTableName         = appSettings["StorageTableName"];
+                string postPath                 = appSettings["PostPath"];
+                string partitionKey             = appSettings["PartitionKey"];
+                string storageConnectionString  = appSettings["StorageConnectionString"];
+                string healthCheckSharedSecret  = appSettings["HealthCheckSharedSecret"];
 
                 // Create a web request
                 var request = WebRequest.Create(new Uri(new Uri(endpointUrl), postPath));
 
                 // Open the storage
                 Console.WriteLine("HealthCheck: attaching to the storage account");
-                var storageAccount = CloudStorageAccount.Parse(storageConnectionString);
-                var tableClient = storageAccount.CreateCloudTableClient();
-                var table = tableClient.GetTableReference(storageTableName);
+
+                var storageAccount  = CloudStorageAccount.Parse(storageConnectionString);
+                var tableClient     = storageAccount.CreateCloudTableClient();
+                var table           = tableClient.GetTableReference(storageTableName);
                 table.CreateIfNotExists();
 
                 // Generate the row key
                 // Don't use any characters that can get sanitised so this key is exactly what gets inserted in the table
                 var rowkey = "healthcheckX" + DateTime.Now.Ticks + "X";
 
-                Console.WriteLine("HealthCheck: found {0} matches initially", CountMatches(rowkey, table, partitionKey));
+                Console.WriteLine("HealthCheck: found {0} matches initially", CountMatches(partitionKey, rowkey, table));
 
                 // Generate the payload request
                 var payload = JsonConvert.SerializeObject(new
@@ -82,9 +83,9 @@ namespace Regard.HealthCheck
                 var payloadBytes = Encoding.UTF8.GetBytes(payload);
 
                 // Generate a JSON request
-                request.Method = "POST";
-                request.ContentType = "application/json";
-                request.ContentLength = payloadBytes.Length;
+                request.Method          = "POST";
+                request.ContentType     = "application/json";
+                request.ContentLength   = payloadBytes.Length;
 
                 // Write the payload
                 var stream = request.GetRequestStream();
@@ -103,7 +104,7 @@ namespace Regard.HealthCheck
                     // Search for the event
                     Console.WriteLine("HealthCheck: querying for event");
 
-                    var queryCount = CountMatches(rowkey, table, partitionKey);
+                    var queryCount = CountMatches(partitionKey, rowkey, table);
                     Console.WriteLine("HealthCheck: Found {0} results", queryCount);
 
                     // Stop once we get a result
@@ -128,7 +129,7 @@ namespace Regard.HealthCheck
         /// <summary>
         /// Counts the number of matches of a particular key in the Azure table storage
         /// </summary>
-        private static int CountMatches(string rowkey, CloudTable table, string partitionKey)
+        private static int CountMatches(string partitionKey, string rowkey, CloudTable table)
         {
             TableQuery<TableEntity> eventQuery = new TableQuery<TableEntity>().Where(
                 TableQuery.CombineFilters(
