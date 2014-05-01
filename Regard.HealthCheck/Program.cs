@@ -9,11 +9,17 @@ using System.Threading;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Table;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Regard.HealthCheck
 {
     class Program
     {
+        /// <summary>
+        /// User identifier for a test user (who gets automatically opted-in to everything but cannot be used for production data)
+        /// </summary>
+        public readonly static Guid TestUser = new Guid("F16CB994-00FF-4326-B0DB-F316F7EC2942");
+
         // CopyPasta from the consumer (supplying the signature will produce some health check trace on the server and will also ensure that our event ends up
         // where we expect it)
         /// <summary>
@@ -55,9 +61,6 @@ namespace Regard.HealthCheck
                 string storageConnectionString  = appSettings["StorageConnectionString"];
                 string healthCheckSharedSecret  = appSettings["HealthCheckSharedSecret"];
 
-                // Create a web request
-                var request = WebRequest.Create(new Uri(new Uri(endpointUrl), postPath));
-
                 // Open the storage
                 Console.WriteLine("HealthCheck: attaching to the storage account");
 
@@ -71,6 +74,9 @@ namespace Regard.HealthCheck
                 var rowkey = "healthcheckX" + DateTime.Now.Ticks + "X";
 
                 Console.WriteLine("HealthCheck: found {0} matches initially", CountMatches(partitionKey, rowkey, table));
+
+                // Create a web request
+                var request = WebRequest.Create(new Uri(new Uri(endpointUrl), "track/v1/WithRegard/Test/event"));
 
                 // Generate the payload request
                 var payload = JsonConvert.SerializeObject(new
@@ -118,6 +124,36 @@ namespace Regard.HealthCheck
                 }
 
                 Console.WriteLine("HealthCheck: request was processed");
+
+                // Also try a 'new session' event to the withregard test account with the test user
+
+                // Create a new web request
+                request = WebRequest.Create(new Uri(new Uri(endpointUrl), postPath));
+
+                // Generate the payload request
+                JObject testNewSession = new JObject();
+                testNewSession["new-session"] = true;
+                testNewSession["session-id"] = Guid.NewGuid().ToString();
+                testNewSession["user-id"] = TestUser.ToString();
+                testNewSession["is-a"] = "HealthCheck";
+                testNewSession["healthcheck-id"] = rowkey;
+
+                payloadBytes = Encoding.UTF8.GetBytes(testNewSession.ToString());
+
+                // Generate a JSON request
+                request.Method = "POST";
+                request.ContentType = "application/json";
+                request.ContentLength = payloadBytes.Length;
+
+                // Write the payload
+                stream = request.GetRequestStream();
+                stream.Write(payloadBytes, 0, payloadBytes.Length);
+
+                // Perform the request
+                Console.WriteLine("HealthCheck: Sending test session start event", rowkey);
+                response = (HttpWebResponse)request.GetResponse();
+
+                Console.WriteLine("HealthCheck: Response {0} {1}", (int)response.StatusCode, response.StatusDescription);
             }
             catch (Exception e)
             {
