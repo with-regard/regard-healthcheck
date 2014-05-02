@@ -76,7 +76,7 @@ namespace Regard.HealthCheck
                 Console.WriteLine("HealthCheck: found {0} matches initially", CountMatches(partitionKey, rowkey, table));
 
                 // Create a web request
-                var request = WebRequest.Create(new Uri(new Uri(endpointUrl), "track/v1/WithRegard/Test/event"));
+                var request = WebRequest.Create(new Uri(new Uri(endpointUrl), postPath));
 
                 // Generate the payload request
                 var payload = JsonConvert.SerializeObject(new
@@ -128,7 +128,7 @@ namespace Regard.HealthCheck
                 // Also try a 'new session' event to the withregard test account with the test user
 
                 // Create a new web request
-                request = WebRequest.Create(new Uri(new Uri(endpointUrl), postPath));
+                request = WebRequest.Create(new Uri(new Uri(endpointUrl), "track/v1/WithRegard/Test/event"));
 
                 // Generate the payload request
                 JObject testNewSession = new JObject();
